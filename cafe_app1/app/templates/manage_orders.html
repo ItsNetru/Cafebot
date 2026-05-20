@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Управление заказами Telegram-бота</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; margin: 40px; background: #f4f6f9; color: #333; }
+        h2 { color: #2c3e50; }
+        table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        th, td { padding: 14px 18px; text-align: left; border-bottom: 1px solid #eef2f5; }
+        th { background-color: #4f46e5; color: white; font-weight: 600; }
+        tr:hover { background-color: #f9fafb; }
+        select { padding: 8px; border-radius: 6px; border: 1px solid #cbd5e1; background-color: #fff; cursor: pointer; outline: none; }
+        select:focus { border-color: #4f46e5; }
+        #toast { position: fixed; bottom: 20px; right: 20px; padding: 12px 24px; background: #10b981; color: white; border-radius: 6px; display: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-weight: bold; z-index: 1000; }
+    </style>
+</head>
+<body>
+
+    <h2>📦 Панель управления заказами Cafe Bot</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID Заказа</th>
+                <th>ID Пользователя</th>
+                <th>Сумма</th>
+                <th>Дата создания</th>
+                <th>Статус заказа</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for order in orders %}
+            <tr>
+                <td><strong>#{{ order.id }}</strong></td>
+                <td>{{ order.user_id }}</td>
+                <td>{{ order.total }} ₸</td>
+                <td>{{ order.created_at|date:"d.m.Y H:i" }}</td>
+                <td>
+                    <select data-order-id="{{ order.id }}" onchange="updateStatus(this)">
+                        <option value="pending" {% if order.status == "pending" %}selected{% endif %}>Ожидает (Pending)</option>
+                        <option value="cooking" {% if order.status == "cooking" %}selected{% endif %}>Готовится (Cooking)</option>
+                        <option value="delivering" {% if order.status == "delivering" %}selected{% endif %}>В доставке (Delivering)</option>
+                        <option value="done" {% if order.status == "done" %}selected{% endif %}>Завершен (Done)</option>
+                    </select>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" style="text-align: center; color: #888;">Заказов пока нет</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div id="toast">Статус сохранен!</div>
+
+    <script>
+    function updateStatus(selectElement) {
+        const orderId = selectElement.getAttribute('data-order-id');
+        const newStatus = selectElement.value;
+
+        const formData = new FormData();
+        formData.append('order_id', orderId);
+        formData.append('status', newStatus);
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        fetch("{% url 'manage_orders' %}", {
+            method: "POST",
+            headers: { "X-Requested-With": "XMLHttpRequest" },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === "success") {
+                showToast("✅ Статус изменен!");
+            } else {
+                showToast("❌ Ошибка: " + data.message, "#ef4444");
+            }
+        })
+        .catch(error => {
+            showToast("❌ Ошибка сети", "#ef4444");
+        });
+    }
+
+    function showToast(text, bgColor = "#10b981") {
+        const toast = document.getElementById("toast");
+        toast.innerText = text;
+        toast.style.background = bgColor;
+        toast.style.display = "block";
+        setTimeout(() => { toast.style.display = "none"; }, 2000);
+    }
+    </script>
+</body>
+</html>
